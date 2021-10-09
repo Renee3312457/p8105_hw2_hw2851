@@ -1,0 +1,42 @@
+---
+title: "p8105_hw2_hw2851"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library("tidyverse")
+library("readxl")
+```
+
+## Problem 1
+
+```{r trash_wheel, message=FALSE}
+trash_wheel_data_set = './data/Trash-Wheel-Collection-Totals-8-6-19.xlsx'
+mr_trash_wheel_data = read_excel(trash_wheel_data_set) %>%
+  janitor::clean_names() %>%
+  # remove columns containing notes
+  select(dumpster:homes_powered) %>%
+  # remove rows that don't contain dumpster-specific data (for example, "May Total")
+  filter(!stringr::str_detect(month, "Total")) %>%
+  # round the number of sports balls
+  mutate(sports_balls = round(sports_balls, 0))
+```
+The Mr. trash wheel dataset has `r nrow(mr_trash_wheel_data)` rows. After clean up, it contains `r length(mr_trash_wheel_data)` columns: `r colnames(mr_trash_wheel_data)`. Here is the first row of the dataset: `r head(mr_trash_wheel_data, n=1)`. Here is the last row of the dataset: `r tail(mr_trash_wheel_data, n=1)`.
+The median number of sports balls in a dumpster in 2019 is `r median(filter(mr_trash_wheel_data, year == 2019)$sports_balls)`.
+
+```{r}
+precipitation_2019_data = read_excel(trash_wheel_data_set, sheet="2019 Precipitation", skip=1) %>%
+  janitor::clean_names() %>%
+  drop_na() %>%
+  mutate(year = "2019")
+
+precipitation_2018_data = read_excel(trash_wheel_data_set, sheet="2018 Precipitation", skip=1) %>%
+  janitor::clean_names() %>%
+  drop_na() %>%
+  mutate(year = "2018")
+
+precipitation_data = bind_rows(precipitation_2019_data, precipitation_2018_data) %>%
+  mutate(month = month.name[month])
+```
+
+The 2018 and 2019 combined precipitation dataset has `r nrow(precipitation_data)` rows. After clean up, it contains `r length(precipitation_data)` columns: `r colnames(precipitation_data)`. Here is the first row of the dataset: `r head(precipitation_data, n=1)`. Here is the last row of the dataset: `r tail(precipitation_data, n=1)`. The total precipitation in 2018 is `r sum(filter(precipitation_data, year == 2018)$total)`.
