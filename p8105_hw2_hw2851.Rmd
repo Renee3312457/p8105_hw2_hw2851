@@ -40,3 +40,43 @@ precipitation_data = bind_rows(precipitation_2019_data, precipitation_2018_data)
 ```
 
 The 2018 and 2019 combined precipitation dataset has `r nrow(precipitation_data)` rows. After clean up, it contains `r length(precipitation_data)` columns: `r colnames(precipitation_data)`. Here is the first row of the dataset: `r head(precipitation_data, n=1)`. Here is the last row of the dataset: `r tail(precipitation_data, n=1)`. The total precipitation in 2018 is `r sum(filter(precipitation_data, year == 2018)$total)`.
+
+## Problem 2
+```{r, message=FALSE}
+pols_month_data = read_csv('./data/fivethirtyeight_datasets/pols-month.csv') %>%
+  separate(mon, into = c("year", "month", "day"), sep = "-") %>%
+  mutate(year = as.numeric(year), month = month.name[as.integer(month)]) %>%
+  mutate(president = ifelse(prez_gop==0, "dem", "gop")) %>%
+  select(-day, -prez_dem, -prez_gop)
+```
+
+```{r, message=FALSE}
+snp_data = read_csv('./data/fivethirtyeight_datasets/snp.csv') %>%
+  separate(date, into=c("month", "day", "year"), sep="/") %>%
+  mutate(year = as.integer(year), month = as.integer(month)) %>%
+  mutate(year = ifelse(year < 20, year + 2000, year + 1900)) %>%
+  arrange(year, month) %>%
+  mutate(month = month.name[month]) %>%
+  relocate(year, month) %>%
+  select(-day)
+```
+
+```{r, message=FALSE}
+unemployment_data = read_csv('./data/fivethirtyeight_datasets/unemployment.csv') %>%
+  rename(year=Year) %>%
+  pivot_longer(!year, names_to = "month", values_to = "unemployment_rate")
+```
+
+```{r}
+merged_538_data = left_join(pols_month_data, snp_data, by = c("year" = "year", "month" = "month")) %>%
+  mutate(month_short = substr(month, 1, 3)) %>%
+  left_join(unemployment_data, by = c("year" = "year", "month_short" = "month")) %>%
+  select(-month_short)
+```
+
+After processing, the merged FiveThirtyEight dataset has `r nrow(merged_538_data)` rows and `r length(merged_538_data)` columns. The `r length(merged_538_data)` columns are: `r colnames(merged_538_data)`.
+
+Here is the first row of the dataset: `r head(merged_538_data, n=1)`. Here is the last row of the tdataset: `r tail(merged_538_data, n=1)`. The range of years is from `r range(merged_538_data$year)[1]` to `r range(merged_538_data$year)[2]`.
+
+The closing values of the S&P stock index is available since 1950 though, and the unemployment rate is available since 1948. The mean of S&P closing value is `r mean(drop_na(merged_538_data)$close)`. The mean of unemployment rate is `r mean(drop_na(merged_538_data)$unemployment_rate)`.
+## Problem 3
