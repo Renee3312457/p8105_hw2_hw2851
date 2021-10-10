@@ -22,54 +22,76 @@ mr_trash_wheel_data = read_excel(trash_wheel_data_set) %>%
   mutate(sports_balls = round(sports_balls, 0))
 ```
 The Mr. trash wheel dataset has `r nrow(mr_trash_wheel_data)` rows. After clean up, it contains `r length(mr_trash_wheel_data)` columns: `r colnames(mr_trash_wheel_data)`. Here is the first row of the dataset: `r head(mr_trash_wheel_data, n=1)`. Here is the last row of the dataset: `r tail(mr_trash_wheel_data, n=1)`.
-The median number of sports balls in a dumpster in 2019 is `r median(filter(mr_trash_wheel_data, year == 2019)$sports_balls)`.
+**The median number of sports balls in a dumpster in 2019 is `r median(filter(mr_trash_wheel_data, year == 2019)$sports_balls)`.**
+
+The mean of weight_tons is `r mean(mr_trash_wheel_data$weight_tons)`; the mean of volume_cubic_yards is `r mean(mr_trash_wheel_data$volume_cubic_yards)`.
 
 ```{r}
 precipitation_2019_data = read_excel(trash_wheel_data_set, sheet="2019 Precipitation", skip=1) %>%
   janitor::clean_names() %>%
+  # drop rows with NA columns
   drop_na() %>%
+  # add a year column
   mutate(year = "2019")
 
 precipitation_2018_data = read_excel(trash_wheel_data_set, sheet="2018 Precipitation", skip=1) %>%
   janitor::clean_names() %>%
   drop_na() %>%
+  # add a year column
   mutate(year = "2018")
 
 precipitation_data = bind_rows(precipitation_2019_data, precipitation_2018_data) %>%
   mutate(month = month.name[month])
 ```
 
-The 2018 and 2019 combined precipitation dataset has `r nrow(precipitation_data)` rows. After clean up, it contains `r length(precipitation_data)` columns: `r colnames(precipitation_data)`. Here is the first row of the dataset: `r head(precipitation_data, n=1)`. Here is the last row of the dataset: `r tail(precipitation_data, n=1)`. The total precipitation in 2018 is `r sum(filter(precipitation_data, year == 2018)$total)`.
+The 2018 and 2019 combined precipitation dataset has `r nrow(precipitation_data)` rows. After clean up, it contains `r length(precipitation_data)` columns: `r colnames(precipitation_data)`. Here is the first row of the dataset: `r head(precipitation_data, n=1)`. Here is the last row of the dataset: `r tail(precipitation_data, n=1)`. **The total precipitation in 2018 is `r sum(filter(precipitation_data, year == 2018)$total)`.**
 
 ## Problem 2
 ```{r, message=FALSE}
 pols_month_data = read_csv('./data/fivethirtyeight_datasets/pols-month.csv') %>%
+  # separate mon into three columns, year, month and day
   separate(mon, into = c("year", "month", "day"), sep = "-") %>%
+  # cast year and month as numeric
   mutate(year = as.numeric(year), month = month.name[as.integer(month)]) %>%
+  # create a new president variable
   mutate(president = ifelse(prez_gop==0, "dem", "gop")) %>%
+  # remove some unused columns
   select(-day, -prez_dem, -prez_gop)
 ```
 
 ```{r, message=FALSE}
 snp_data = read_csv('./data/fivethirtyeight_datasets/snp.csv') %>%
+  # separate mon into three columns, year, month and day
   separate(date, into=c("month", "day", "year"), sep="/") %>%
+  # cast year and month as numeric
   mutate(year = as.integer(year), month = as.integer(month)) %>%
+  # convert year 59 to 1959; year 10 to 2010
   mutate(year = ifelse(year < 20, year + 2000, year + 1900)) %>%
+  # order by year and month
   arrange(year, month) %>%
+  # change month format from integer to month name
   mutate(month = month.name[month]) %>%
+  # set year and month as the first two columns
   relocate(year, month) %>%
+  # remove day
   select(-day)
 ```
 
 ```{r, message=FALSE}
 unemployment_data = read_csv('./data/fivethirtyeight_datasets/unemployment.csv') %>%
   rename(year=Year) %>%
+  # expand the table so that we have a row for each month
   pivot_longer(!year, names_to = "month", values_to = "unemployment_rate")
 ```
 
 ```{r}
+# merge snp data into pols month data, on year and month
 merged_538_data = left_join(pols_month_data, snp_data, by = c("year" = "year", "month" = "month")) %>%
+  # month formats are slightly different in the two dataframes;
+  # in the first one it's like "April", while in the second one it's "Apr"
+  # thus, we slice the first one so that we can join on "Apr" later
   mutate(month_short = substr(month, 1, 3)) %>%
+  # join unemployment data with the first two datasets
   left_join(unemployment_data, by = c("year" = "year", "month_short" = "month")) %>%
   select(-month_short)
 ```
@@ -79,4 +101,39 @@ After processing, the merged FiveThirtyEight dataset has `r nrow(merged_538_data
 Here is the first row of the dataset: `r head(merged_538_data, n=1)`. Here is the last row of the tdataset: `r tail(merged_538_data, n=1)`. The range of years is from `r range(merged_538_data$year)[1]` to `r range(merged_538_data$year)[2]`.
 
 The closing values of the S&P stock index is available since 1950 though, and the unemployment rate is available since 1948. The mean of S&P closing value is `r mean(drop_na(merged_538_data)$close)`. The mean of unemployment rate is `r mean(drop_na(merged_538_data)$unemployment_rate)`.
+
 ## Problem 3
+
+```{r, message=FALSE}
+popular_name_data = read_csv('./data/Popular_Baby_Names.csv') %>%
+  janitor::clean_names() %>%
+  # unify the naming of ethnicity
+  mutate(ethnicity = replace(ethnicity, ethnicity == "BLACK NON HISP", "BLACK NON HISPANIC"),
+         ethnicity = replace(ethnicity, ethnicity == "WHITE NON HISP", "WHITE NON HISPANIC"),
+         ethnicity = replace(ethnicity, ethnicity == "ASIAN AND PACI", "ASIAN AND PACIFIC ISLANDER")) %>%
+  # only capitalize the first character in the name
+  mutate(childs_first_name = str_to_title(childs_first_name) ) %>%
+  # remove duplicate rows
+  distinct(year_of_birth, gender, ethnicity, childs_first_name, count, rank)
+```
+In the table below, we show the rank in popularity of the name “Olivia” as a female baby name over time. We can see it has consistently high rank across different ethnicity groups and over time. In particular, for Asian & Pacific Islander and White non-Hispanic, it has been among the top-5 most popular female baby names every year from 2011 to 2016.
+```{r}
+olivia_popularity_over_time = filter(popular_name_data, childs_first_name == "Olivia", gender == "FEMALE") %>%
+  select(-childs_first_name, -gender, -count) %>%
+  pivot_wider(names_from = "year_of_birth", values_from = "rank")
+knitr::kable(olivia_popularity_over_time)
+```
+
+In the table below, we show the most popular name among male children over time. We can see several names are the most popular name across different ethnicity groups and in different years. For example, Jayden is the most popular Hispanic male baby name from 2011 to 2013; it's the most popular Black non-Hispanic male baby name from 2011 to 2012; it's also the most popular Asian and Pacific Islander male baby name from 2013 to 2015.
+```{r}
+most_popular_names = filter(popular_name_data, gender == "MALE", rank == 1) %>%
+  select(-count, -rank, -gender) %>%
+  pivot_wider(names_from = "year_of_birth", values_from = "childs_first_name")
+knitr::kable(most_popular_names)
+```
+
+In the scatter plot below, we show the relationship between rank in popularity and the number of children with a certain name, for male, white non-hispanic children born in 2016. Obviously, higher rank is associated with larger count of name. It also roughly follows the power law distribution.
+```{r}
+scatter_plot_input = filter(popular_name_data, gender == "MALE", ethnicity == "WHITE NON HISPANIC", year_of_birth == 2016)
+ggplot(scatter_plot_input, aes(x = rank, y = count)) + geom_point()
+```
